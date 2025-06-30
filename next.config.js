@@ -4,9 +4,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
-  experimental: {
-    dynamicIO: false,
-  },
   webpack: (config) => {
     config.ignoreWarnings = [
       {
