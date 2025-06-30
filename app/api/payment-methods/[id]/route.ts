@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = params
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,7 +64,7 @@ export async function PUT(
 ) {
   try {
     const { id } = params
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -117,7 +117,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = params
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
