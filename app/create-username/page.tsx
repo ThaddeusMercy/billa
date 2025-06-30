@@ -271,13 +271,12 @@ export default function CreateUsernamePage() {
 
   const getDisplayUrl = (usernameParam?: string) => {
     const name = usernameParam || username || 'yourname'
-    if (!isClient) return `yourdomain.com/${name}`
-    return `${window.location.host}/${name}`
+    return `billa.gg/${name}`
   }
 
   const getShareableUrl = (usernameParam?: string) => {
     const name = usernameParam || username
-    if (!isClient) return `https://yourdomain.com/${name}`
+    if (!isClient) return `https://billa.gg/${name}`
     return `${window.location.origin}/${name}`
   }
 
@@ -759,4 +758,4 @@ export default function CreateUsernamePage() {
       )}
     </>
   )
-} 
+}
