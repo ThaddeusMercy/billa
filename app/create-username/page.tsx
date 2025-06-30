@@ -37,6 +37,7 @@ export default function CreateUsernamePage() {
   const [isClient, setIsClient] = useState(false)
   const [showSocialConfirm, setShowSocialConfirm] = useState(false)
   const [showSweetScreen, setShowSweetScreen] = useState(false)
+  const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     setIsClient(true)
@@ -168,11 +169,9 @@ export default function CreateUsernamePage() {
       return
     }
 
-    console.log('Frontend: Starting username check for:', value)
     setIsChecking(true)
     
     try {
-      console.log('Frontend: Making API call to /api/check-username')
       const response = await fetch('/api/check-username', {
         method: 'POST',
         headers: {
@@ -181,29 +180,44 @@ export default function CreateUsernamePage() {
         body: JSON.stringify({ username: value })
       })
       
-      console.log('Frontend: API response status:', response.status)
-      
       const data = await response.json()
-      console.log('Frontend: API response data:', data)
-      
       setIsAvailable(data.available)
     } catch (error) {
-      console.error('Frontend: Error checking username:', error)
+      console.error('Error checking username:', error)
       setIsAvailable(false)
     } finally {
-    setIsChecking(false)
+      setIsChecking(false)
     }
   }
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
     setUsername(value)
+    
+    // Clear previous timeout
+    if (checkTimeout) {
+      clearTimeout(checkTimeout)
+    }
+    
     if (value.length >= 3) {
-      checkUsername(value)
+      // Debounce username checking
+      const timeout = setTimeout(() => {
+        checkUsername(value)
+      }, 500)
+      setCheckTimeout(timeout)
     } else {
       setIsAvailable(null)
     }
   }
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (checkTimeout) {
+        clearTimeout(checkTimeout)
+      }
+    }
+  }, [checkTimeout])
 
   const handleCreateUsername = async () => {
     if (!username || !isAvailable || !user) return
@@ -238,6 +252,15 @@ export default function CreateUsernamePage() {
   const getDisplayUrl = (usernameParam?: string) => {
     const name = usernameParam || username || 'yourname'
     if (!isClient) return `yourdomain.com/${name}`
+    
+    // Show clean URLs in development
+    const hostname = window.location.hostname
+    if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+      return `localhost:3000/${name}`
+    } else if (hostname.includes('webcontainer') || hostname.includes('stackblitz')) {
+      return `billa.gg/${name}`
+    }
+    
     return `${window.location.host}/${name}`
   }
 
@@ -246,6 +269,9 @@ export default function CreateUsernamePage() {
     if (!isClient) return `https://yourdomain.com/${name}`
     return `${window.location.origin}/${name}`
   }
+
+  // Check if user can create username
+  const canCreateUsername = username.length >= 3 && isAvailable === true && user && !isCreating && !loading
 
   return (
     <>
@@ -357,7 +383,7 @@ export default function CreateUsernamePage() {
             
             <Button
               onClick={handleCreateUsername}
-              disabled={!username || isAvailable !== true || isCreating || !user}
+              disabled={!canCreateUsername}
               className="w-full bg-black hover:bg-gray-800 text-white rounded-xl h-12 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreating ? (
@@ -725,4 +751,4 @@ export default function CreateUsernamePage() {
       )}
     </>
   )
-} 
+}

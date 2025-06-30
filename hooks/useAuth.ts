@@ -9,6 +9,7 @@ export const useAuth = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [session, setSession] = useState<Session | null>(null)
+  const [initialized, setInitialized] = useState(false)
 
   const fetchInitialData = useCallback(async (userId: string) => {
     // Skip data fetching if Supabase is not properly configured
@@ -18,7 +19,6 @@ export const useAuth = () => {
       return
     }
 
-    setLoading(true)
     try {
       // Use maybeSingle() to handle cases where profile doesn't exist yet
       const [profileResponse, paymentMethodsResponse] = await Promise.all([
@@ -41,11 +41,6 @@ export const useAuth = () => {
       setProfile(profileResponse.data)
       setPaymentMethods(paymentMethodsResponse.data || [])
 
-      console.log('Initial data fetched successfully:', {
-        profileExists: !!profileResponse.data,
-        paymentMethodsCount: paymentMethodsResponse.data?.length || 0
-      })
-
     } catch (error: any) {
       console.error('Error fetching initial data:', error)
       setError(error.message)
@@ -65,6 +60,7 @@ export const useAuth = () => {
     if (!isSupabaseConfigured()) {
       console.warn('Supabase not configured, skipping auth setup')
       setLoading(false)
+      setInitialized(true)
       return
     }
 
@@ -89,6 +85,8 @@ export const useAuth = () => {
         console.error('Error in getInitialSession:', error)
         setError(error.message)
         setLoading(false)
+      } finally {
+        setInitialized(true)
       }
     }
     
@@ -133,21 +131,24 @@ export const useAuth = () => {
     }
   }, [])
 
-  // This effect is no longer needed for rendering, but kept for redirection logic.
+  // Handle redirects only after initialization and with proper conditions
   useEffect(() => {
-    if (user && profile !== null && typeof window !== 'undefined') {
-      const currentPath = window.location.pathname
-      const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
-      
+    if (!initialized || typeof window === 'undefined') return
+
+    const currentPath = window.location.pathname
+    const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
+    
+    // Avoid redirect loops by checking current path
+    if (user && profile !== null) {
       if (!profile?.username && currentPath !== '/create-username' && !currentPath.startsWith('/auth/')) {
+        console.log('Redirecting to username creation')
         window.location.replace('/create-username')
-      }
-      
-      if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
+      } else if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
+        console.log('Redirecting to dashboard')
         window.location.replace('/dashboard')
       }
     }
-  }, [user, profile])
+  }, [user, profile, initialized])
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in')
