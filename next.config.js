@@ -4,6 +4,8 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+  trailingSlash: true,
+  distDir: '.next',
   webpack: (config) => {
     config.ignoreWarnings = [
       {
