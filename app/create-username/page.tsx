@@ -353,15 +353,7 @@ export default function CreateUsernamePage() {
           </div>
 
           <div className="mt-8">
-            {/* Debug info - remove after fixing */}
-            <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-              <div>Debug - Button conditions:</div>
-              <div>• username: {username || 'empty'} ({!username ? '❌' : '✅'})</div>
-              <div>• isAvailable: {isAvailable === null ? 'null' : isAvailable.toString()} ({isAvailable !== true ? '❌' : '✅'})</div>
-              <div>• isCreating: {isCreating.toString()} ({isCreating ? '❌' : '✅'})</div>
-              <div>• user: {user ? 'exists' : 'null'} ({!user ? '❌' : '✅'})</div>
-              <div>• loading removed from condition (was blocking button)</div>
-            </div>
+           
             
             <Button
               onClick={handleCreateUsername}
