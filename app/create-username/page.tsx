@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { useAuthContext } from "@/contexts/AuthContext"
+import { isSupabaseConfigured } from "@/lib/supabase"
 
 // Custom X (Twitter) icon component
 const XIcon = ({ className }: { className?: string }) => (
@@ -37,9 +38,14 @@ export default function CreateUsernamePage() {
   const [isClient, setIsClient] = useState(false)
   const [showSocialConfirm, setShowSocialConfirm] = useState(false)
   const [showSweetScreen, setShowSweetScreen] = useState(false)
+  const [configurationError, setConfigurationError] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      setConfigurationError(true)
+    }
   }, [])
 
   const getSocialIcon = (platform: string) => {
@@ -168,30 +174,46 @@ export default function CreateUsernamePage() {
       return
     }
 
+    if (!isSupabaseConfigured()) {
+      // If Supabase isn't configured, just mark as available for demo purposes
+      setIsAvailable(true)
+      return
+    }
+
     console.log('Frontend: Starting username check for:', value)
     setIsChecking(true)
     
     try {
       console.log('Frontend: Making API call to /api/check-username')
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      
       const response = await fetch('/api/check-username', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username: value })
+        body: JSON.stringify({ username: value }),
+        signal: controller.signal
       })
       
+      clearTimeout(timeoutId)
       console.log('Frontend: API response status:', response.status)
       
       const data = await response.json()
       console.log('Frontend: API response data:', data)
       
       setIsAvailable(data.available)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Frontend: Error checking username:', error)
+      if (error.name === 'AbortError') {
+        toast.error('Request timed out. Please check your connection and try again.')
+      } else {
+        toast.error('Unable to check username availability. Please try again.')
+      }
       setIsAvailable(false)
     } finally {
-    setIsChecking(false)
+      setIsChecking(false)
     }
   }
 
@@ -212,8 +234,19 @@ export default function CreateUsernamePage() {
     localStorage.setItem('billa-onboarding-active', 'true')
     
     try {
+      if (!isSupabaseConfigured()) {
+        // If Supabase isn't configured, simulate success and go to demo mode
+        toast.success("🎉 Username created!", {
+          description: `Your Billa link is ready: ${getDisplayUrl(username)}`,
+          duration: 4000,
+        })
+        
+        setShowOnboarding(true)
+        return
+      }
+
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 10000) // 10 seconds
+        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 15000) // 15 seconds
       );
 
       await Promise.race([
@@ -229,7 +262,7 @@ export default function CreateUsernamePage() {
       setShowOnboarding(true)
     } catch (error: any) {
       console.error('Error creating username:', error)
-      toast.error(error.message || 'Failed to create username')
+      toast.error(error.message || 'Failed to create username. Please try again.')
       setIsCreating(false)
       localStorage.removeItem('billa-onboarding-active')
     }
@@ -245,6 +278,38 @@ export default function CreateUsernamePage() {
     const name = usernameParam || username
     if (!isClient) return `https://yourdomain.com/${name}`
     return `${window.location.origin}/${name}`
+  }
+
+  // Show configuration error if Supabase isn't set up
+  if (configurationError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md text-center border border-red-200">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <XClose className="h-8 w-8 text-red-600" />
+          </div>
+          <h1 className="text-xl font-bold text-black mb-2">Configuration Required</h1>
+          <p className="text-black/60 mb-6">
+            This application requires Supabase to be configured. Please set up your environment variables and database.
+          </p>
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.open('/DEPLOYMENT_GUIDE.md', '_blank')}
+              className="w-full bg-black hover:bg-black/90 text-white rounded-xl"
+            >
+              View Setup Guide
+            </Button>
+            <Button
+              onClick={() => router.push('/')}
+              variant="outline"
+              className="w-full border-black/20 text-black/70 hover:bg-black/5 rounded-xl"
+            >
+              Go Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -583,8 +648,10 @@ export default function CreateUsernamePage() {
                       }
 
                       try {
-                        await updateProfile({ social_links: validSocialLinks })
-                        toast.success('Social accounts added successfully!')
+                        if (isSupabaseConfigured()) {
+                          await updateProfile({ social_links: validSocialLinks })
+                          toast.success('Social accounts added successfully!')
+                        }
                         setShowSetup(false)
                         setShowSweetScreen(true)
                       } catch (error) {
@@ -725,4 +792,4 @@ export default function CreateUsernamePage() {
       )}
     </>
   )
-} 
+}
