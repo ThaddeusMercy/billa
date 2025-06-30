@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ available: false })
     }
 
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -79,4 +79,4 @@ export async function POST(request: NextRequest) {
     console.error('Unexpected error in username check:', error)
     return NextResponse.json({ available: false, error: 'Error checking username' })
   }
-} 
+}
