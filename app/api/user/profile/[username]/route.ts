@@ -4,10 +4,10 @@ import { cookies } from 'next/headers'
 
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ username: string }> }
+  { params }: { params: { username: string } }
 ) {
   try {
-    const { username } = await props.params
+    const { username } = params
     const cookieStore = await cookies()
     
     const supabase = createServerClient(
