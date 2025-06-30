@@ -4,10 +4,10 @@ import { cookies } from 'next/headers'
 
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await props.params
+    const { id } = params
     const cookieStore = await cookies()
     
     const supabase = createServerClient(
@@ -58,10 +58,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await props.params
+    const { id } = params
     const cookieStore = await cookies()
     
     const supabase = createServerClient(
@@ -111,10 +111,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await props.params
+    const { id } = params
     const cookieStore = await cookies()
     
     const supabase = createServerClient(
