@@ -9,6 +9,12 @@ export const useAuth = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [session, setSession] = useState<Session | null>(null)
+  const [isClient, setIsClient] = useState(false)
+
+  // Track if we're in a hydration-safe state
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const fetchInitialData = useCallback(async (userId: string) => {
     // Skip data fetching if Supabase is not properly configured
@@ -80,9 +86,8 @@ export const useAuth = () => {
   }, [])
 
   useEffect(() => {
-    // Prevent server-side execution
-    if (typeof window === 'undefined') {
-      setLoading(false)
+    // Prevent server-side execution and hydration issues
+    if (typeof window === 'undefined' || !isClient) {
       return
     }
 
@@ -156,11 +161,11 @@ export const useAuth = () => {
     })
 
     return () => subscription.unsubscribe()
-  }, [fetchInitialData])
+  }, [fetchInitialData, isClient])
 
   useEffect(() => {
     // Prevent server-side execution
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || !isClient) return
 
     // Skip session refresh if Supabase is not configured
     if (!isSupabaseConfigured()) return
@@ -179,23 +184,23 @@ export const useAuth = () => {
     return () => {
       clearInterval(sessionRefreshInterval)
     }
-  }, [])
+  }, [isClient])
 
   // This effect is no longer needed for rendering, but kept for redirection logic.
   useEffect(() => {
-    if (user && profile !== null && typeof window !== 'undefined') {
-      const currentPath = window.location.pathname
-      const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
-      
-      if (!profile?.username && currentPath !== '/create-username' && !currentPath.startsWith('/auth/')) {
-        window.location.replace('/create-username')
-      }
-      
-      if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
-        window.location.replace('/dashboard')
-      }
+    if (!isClient || !user || profile === null) return
+    
+    const currentPath = window.location.pathname
+    const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
+    
+    if (!profile?.username && currentPath !== '/create-username' && !currentPath.startsWith('/auth/')) {
+      window.location.replace('/create-username')
     }
-  }, [user, profile])
+    
+    if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
+      window.location.replace('/dashboard')
+    }
+  }, [user, profile, isClient])
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in')
@@ -386,5 +391,6 @@ export const useAuth = () => {
     error,
     isAuthenticated: !!user,
     isConfigured: isSupabaseConfigured(),
+    isClient, // Export this so components can use it to prevent hydration issues
   }
 }
