@@ -216,43 +216,27 @@ export default function CreateUsernamePage() {
       console.log('📝 Creating username for user:', user.id, 'username:', username)
       console.log('📧 User email:', user.email)
       
-      // Try the auth hook method first
-      try {
-        console.log('🔄 Trying updateProfile method...')
-        await updateProfile({ username })
-        console.log('✅ updateProfile succeeded!')
-      } catch (authError) {
-        console.log('❌ Auth hook failed, trying API approach:', authError)
-        
-        console.log('📡 Making API call to /api/create-profile...')
-        const startTime = Date.now()
-        
-        // Create an API endpoint to handle this server-side with proper permissions
-        const response = await fetch('/api/create-profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: username,
-            userId: user.id,
-            email: user.email
-          })
+      // Use the API route directly instead of the problematic updateProfile method
+      console.log('📡 Creating username via API route...')
+      const response = await fetch('/api/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username,
+          userId: user.id,
+          email: user.email
         })
-        
-        const endTime = Date.now()
-        console.log(`⏱️ API call took ${endTime - startTime}ms`)
-        console.log('📥 API response status:', response.status)
-        
-        if (!response.ok) {
-          const errorData = await response.json()
-          console.log('❌ API error response:', errorData)
-          throw new Error(errorData.error || 'Failed to create profile')
-        }
-        
-        const data = await response.json()
-        console.log('✅ API approach succeeded:', data)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create username')
       }
+
+      const data = await response.json()
+      console.log('✅ Username created via API:', data)
       
       console.log('🎉 Username creation successful!')
       toast.success("🎉 Username created!", {
