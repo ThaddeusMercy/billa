@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Toaster } from "sonner"
 import { AuthProvider } from "@/contexts/AuthContext"
+import ConfigurationBanner from "@/components/ConfigurationBanner"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -10,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Billa - One link. Every way to pay.",
   description: "Create a single link for all your payment methods — from banks to crypto to fintech apps.",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -21,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <ConfigurationBanner />
         <AuthProvider>
           {children}
           <Toaster position="top-center" richColors />
@@ -29,7 +31,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-
-
-import './globals.css'

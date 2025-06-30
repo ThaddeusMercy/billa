@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js'
-import { supabase, UserProfile, PaymentMethod } from '@/lib/supabase'
+import { supabase, UserProfile, PaymentMethod, isSupabaseConfigured } from '@/lib/supabase'
 
 export const useAuth = () => {
   const [loading, setLoading] = useState(true)
@@ -11,6 +11,13 @@ export const useAuth = () => {
   const [session, setSession] = useState<Session | null>(null)
 
   const fetchInitialData = useCallback(async (userId: string) => {
+    // Skip data fetching if Supabase is not properly configured
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, skipping data fetch')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       // Use maybeSingle() to handle cases where profile doesn't exist yet
@@ -50,6 +57,13 @@ export const useAuth = () => {
   useEffect(() => {
     // Prevent server-side execution
     if (typeof window === 'undefined') {
+      setLoading(false)
+      return
+    }
+
+    // Skip auth setup if Supabase is not configured
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, skipping auth setup')
       setLoading(false)
       return
     }
@@ -104,6 +118,9 @@ export const useAuth = () => {
     // Prevent server-side execution
     if (typeof window === 'undefined') return
 
+    // Skip session refresh if Supabase is not configured
+    if (!isSupabaseConfigured()) return
+
     const sessionRefreshInterval = setInterval(
       () => {
         supabase.auth.refreshSession()
@@ -134,6 +151,7 @@ export const useAuth = () => {
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in')
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
 
     try {
       console.log('Attempting to update profile with:', updates)
@@ -165,6 +183,8 @@ export const useAuth = () => {
   }
 
   const checkUserExists = async (email: string) => {
+    if (!isSupabaseConfigured()) return false
+    
     try {
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: 'https://example.com/fake'
@@ -176,6 +196,8 @@ export const useAuth = () => {
   }
 
   const signUp = async (email: string, password: string, profileData?: Partial<UserProfile>) => {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+    
     setLoading(true)
     setError(null)
     
@@ -202,6 +224,8 @@ export const useAuth = () => {
   }
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+    
     setLoading(true)
     setError(null)
     
@@ -226,6 +250,8 @@ export const useAuth = () => {
       throw new Error('Google sign-in can only be used in the browser')
     }
     
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+    
     setLoading(true)
     setError(null)
     
@@ -248,6 +274,18 @@ export const useAuth = () => {
   }
 
   const signOut = async () => {
+    if (!isSupabaseConfigured()) {
+      // If Supabase isn't configured, just clear local state
+      setUser(null)
+      setProfile(null)
+      setSession(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('billa-onboarding-active')
+        window.location.replace('/signin')
+      }
+      return
+    }
+    
     setLoading(true)
     setError(null)
     
@@ -299,5 +337,6 @@ export const useAuth = () => {
     loading,
     error,
     isAuthenticated: !!user,
+    isConfigured: isSupabaseConfigured(),
   }
 }
