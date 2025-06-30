@@ -10,24 +10,57 @@ const hasValidConfig = supabaseUrl !== 'https://placeholder.supabase.co' &&
                       supabaseUrl.includes('supabase.co') &&
                       supabaseAnonKey.length > 20
 
-// Create client with additional options to prevent server-side issues
+// Create client with additional options to prevent server-side issues and handle network errors
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: typeof window !== 'undefined', // Only persist sessions in browser
     autoRefreshToken: typeof window !== 'undefined', // Only auto-refresh in browser
   },
+  global: {
+    fetch: (url, options = {}) => {
+      // Add timeout and better error handling to all fetch requests
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      
+      return fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }).finally(() => {
+        clearTimeout(timeoutId)
+      }).catch(error => {
+        // Log network errors but don't throw them immediately
+        console.warn('Supabase fetch error:', error.message)
+        
+        // Re-throw with more context
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - please check your internet connection')
+        }
+        
+        if (error.message?.includes('Failed to fetch')) {
+          throw new Error('Network error - please check your internet connection and Supabase configuration')
+        }
+        
+        throw error
+      })
+    }
+  }
 })
 
 // Export a function to check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
+  const isConfigured = hasValidConfig && typeof window !== 'undefined'
+  
   console.log('Checking Supabase configuration:', {
     hasUrl: !!supabaseUrl && supabaseUrl !== 'https://placeholder.supabase.co',
     hasKey: !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key',
     urlValid: supabaseUrl.includes('supabase.co'),
     keyLength: supabaseAnonKey.length,
-    hasValidConfig
+    hasValidConfig,
+    isClient: typeof window !== 'undefined',
+    finalResult: isConfigured
   })
-  return hasValidConfig
+  
+  return isConfigured
 }
 
 export type UserProfile = {

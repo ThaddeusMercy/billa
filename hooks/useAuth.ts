@@ -20,21 +20,39 @@ export const useAuth = () => {
 
     setLoading(true)
     try {
+      // Add timeout and better error handling for network requests
+      const fetchWithTimeout = async (promise: Promise<any>, timeoutMs = 10000) => {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+        })
+        return Promise.race([promise, timeoutPromise])
+      }
+
       // Use maybeSingle() to handle cases where profile doesn't exist yet
       const [profileResponse, paymentMethodsResponse] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('payment_methods').select('*').eq('user_id', userId).order('display_order', { ascending: true })
+        fetchWithTimeout(
+          supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+        ).catch(error => {
+          console.warn('Profile fetch failed:', error)
+          return { data: null, error: null } // Return safe fallback
+        }),
+        fetchWithTimeout(
+          supabase.from('payment_methods').select('*').eq('user_id', userId).order('display_order', { ascending: true })
+        ).catch(error => {
+          console.warn('Payment methods fetch failed:', error)
+          return { data: [], error: null } // Return safe fallback
+        })
       ])
 
       // Handle profile response - it might be null if profile doesn't exist
       if (profileResponse.error && profileResponse.error.code !== 'PGRST116') {
         // Only throw if it's not a "no rows returned" error
-        throw profileResponse.error
+        console.warn('Profile error (non-critical):', profileResponse.error)
       }
 
       // Handle payment methods response
       if (paymentMethodsResponse.error) {
-        throw paymentMethodsResponse.error
+        console.warn('Payment methods error (non-critical):', paymentMethodsResponse.error)
       }
 
       // Set profile (might be null if user just signed up)
@@ -48,7 +66,14 @@ export const useAuth = () => {
 
     } catch (error: any) {
       console.error('Error fetching initial data:', error)
-      setError(error.message)
+      // Don't set error state for network issues - let the app continue in offline mode
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('timeout')) {
+        console.warn('Network error detected, continuing in offline mode')
+        setProfile(null)
+        setPaymentMethods([])
+      } else {
+        setError(error.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -70,11 +95,23 @@ export const useAuth = () => {
 
     const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // Add timeout for session fetch
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Session fetch timeout')), 8000)
+        })
+        
+        const { data: { session }, error } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]) as any
         
         if (error) {
           console.error('Error getting session:', error)
-          setError(error.message)
+          // Don't set error for network issues
+          if (!error.message?.includes('Failed to fetch')) {
+            setError(error.message)
+          }
         }
         
         setSession(session)
@@ -87,7 +124,14 @@ export const useAuth = () => {
         }
       } catch (error: any) {
         console.error('Error in getInitialSession:', error)
-        setError(error.message)
+        // Handle network errors gracefully
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('timeout')) {
+          console.warn('Network error during session fetch, continuing without authentication')
+          setSession(null)
+          setUser(null)
+        } else {
+          setError(error.message)
+        }
         setLoading(false)
       }
     }
@@ -123,7 +167,11 @@ export const useAuth = () => {
 
     const sessionRefreshInterval = setInterval(
       () => {
-        supabase.auth.refreshSession()
+        // Add error handling for session refresh
+        supabase.auth.refreshSession().catch(error => {
+          console.warn('Session refresh failed:', error)
+          // Don't throw error, just log it
+        })
       },
       4 * 60 * 1000,
     ) // 4 minutes
