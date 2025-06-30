@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js'
-import { supabase, UserProfile, PaymentMethod, isSupabaseConfigured } from '@/lib/supabase'
+import { supabase, UserProfile, PaymentMethod } from '@/lib/supabase'
 
 export const useAuth = () => {
   const [loading, setLoading] = useState(true)
@@ -9,67 +9,25 @@ export const useAuth = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [session, setSession] = useState<Session | null>(null)
-  const [isClient, setIsClient] = useState(false)
-  const [isHydrated, setIsHydrated] = useState(false)
-
-  // Track if we're in a hydration-safe state
-  useEffect(() => {
-    setIsClient(true)
-    // Add small delay to prevent hydration mismatches
-    const timer = setTimeout(() => {
-      setIsHydrated(true)
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
 
   const fetchInitialData = useCallback(async (userId: string) => {
-    // Skip data fetching if Supabase is not properly configured
-    if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, skipping data fetch')
-      setLoading(false)
-      return
-    }
-
-    // Don't fetch if not hydrated yet to prevent twitching
-    if (!isHydrated) {
-      return
-    }
-
     setLoading(true)
     try {
-      // Add timeout and better error handling for network requests
-      const fetchWithTimeout = async (promise: Promise<any>, timeoutMs = 8000) => {
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
-        })
-        return Promise.race([promise, timeoutPromise])
-      }
-
       // Use maybeSingle() to handle cases where profile doesn't exist yet
       const [profileResponse, paymentMethodsResponse] = await Promise.all([
-        fetchWithTimeout(
-          supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
-        ).catch(error => {
-          console.warn('Profile fetch failed:', error)
-          return { data: null, error: null } // Return safe fallback
-        }),
-        fetchWithTimeout(
-          supabase.from('payment_methods').select('*').eq('user_id', userId).order('display_order', { ascending: true })
-        ).catch(error => {
-          console.warn('Payment methods fetch failed:', error)
-          return { data: [], error: null } // Return safe fallback
-        })
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('payment_methods').select('*').eq('user_id', userId).order('display_order', { ascending: true })
       ])
 
       // Handle profile response - it might be null if profile doesn't exist
       if (profileResponse.error && profileResponse.error.code !== 'PGRST116') {
         // Only throw if it's not a "no rows returned" error
-        console.warn('Profile error (non-critical):', profileResponse.error)
+        throw profileResponse.error
       }
 
       // Handle payment methods response
       if (paymentMethodsResponse.error) {
-        console.warn('Payment methods error (non-critical):', paymentMethodsResponse.error)
+        throw paymentMethodsResponse.error
       }
 
       // Set profile (might be null if user just signed up)
@@ -83,51 +41,26 @@ export const useAuth = () => {
 
     } catch (error: any) {
       console.error('Error fetching initial data:', error)
-      // Don't set error state for network issues - let the app continue in offline mode
-      if (error.message?.includes('Failed to fetch') || error.message?.includes('timeout')) {
-        console.warn('Network error detected, continuing in offline mode')
-        setProfile(null)
-        setPaymentMethods([])
-      } else {
-        setError(error.message)
-      }
+      setError(error.message)
     } finally {
       setLoading(false)
     }
-  }, [isHydrated])
+  }, [])
 
   useEffect(() => {
-    // Prevent server-side execution and hydration issues
-    if (typeof window === 'undefined' || !isClient || !isHydrated) {
-      return
-    }
-
-    // Skip auth setup if Supabase is not configured
-    if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, skipping auth setup')
+    // Prevent server-side execution
+    if (typeof window === 'undefined') {
       setLoading(false)
       return
     }
 
     const getInitialSession = async () => {
       try {
-        // Add timeout for session fetch
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Session fetch timeout')), 6000)
-        })
-        
-        const { data: { session }, error } = await Promise.race([
-          sessionPromise,
-          timeoutPromise
-        ]) as any
+        const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
           console.error('Error getting session:', error)
-          // Don't set error for network issues
-          if (!error.message?.includes('Failed to fetch')) {
-            setError(error.message)
-          }
+          setError(error.message)
         }
         
         setSession(session)
@@ -140,14 +73,7 @@ export const useAuth = () => {
         }
       } catch (error: any) {
         console.error('Error in getInitialSession:', error)
-        // Handle network errors gracefully
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('timeout')) {
-          console.warn('Network error during session fetch, continuing without authentication')
-          setSession(null)
-          setUser(null)
-        } else {
-          setError(error.message)
-        }
+        setError(error.message)
         setLoading(false)
       }
     }
@@ -172,22 +98,15 @@ export const useAuth = () => {
     })
 
     return () => subscription.unsubscribe()
-  }, [fetchInitialData, isClient, isHydrated])
+  }, [fetchInitialData])
 
   useEffect(() => {
     // Prevent server-side execution
-    if (typeof window === 'undefined' || !isClient || !isHydrated) return
-
-    // Skip session refresh if Supabase is not configured
-    if (!isSupabaseConfigured()) return
+    if (typeof window === 'undefined') return
 
     const sessionRefreshInterval = setInterval(
       () => {
-        // Add error handling for session refresh
-        supabase.auth.refreshSession().catch(error => {
-          console.warn('Session refresh failed:', error)
-          // Don't throw error, just log it
-        })
+        supabase.auth.refreshSession()
       },
       4 * 60 * 1000,
     ) // 4 minutes
@@ -195,36 +114,40 @@ export const useAuth = () => {
     return () => {
       clearInterval(sessionRefreshInterval)
     }
-  }, [isClient, isHydrated])
+  }, [])
 
   // This effect is no longer needed for rendering, but kept for redirection logic.
   useEffect(() => {
-    if (!isClient || !isHydrated || !user || profile === null) return
-    
-    const currentPath = window.location.pathname
-    const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
-    
-    if (!profile?.username && currentPath !== '/create-username' && !currentPath.startsWith('/auth/')) {
-      // Use replace to prevent back button issues
-      window.location.replace('/create-username')
+    if (user && profile !== null && typeof window !== 'undefined') {
+      const currentPath = window.location.pathname
+      const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
+      
+      if (!profile?.username && currentPath !== '/create-username' && !currentPath.startsWith('/auth/')) {
+        window.location.replace('/create-username')
+      }
+      
+      if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
+        window.location.replace('/dashboard')
+      }
     }
-    
-    if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
-      window.location.replace('/dashboard')
-    }
-  }, [user, profile, isClient, isHydrated])
+  }, [user, profile])
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in')
-    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
 
     try {
-      console.log('Attempting to update profile with:', updates)
+      console.log('Attempting to upsert profile with:', updates)
+
+      // Include the user ID in the upsert data
+      const profileData = {
+        id: user.id,
+        email: user.email,
+        ...updates
+      }
 
       const { data, error } = await supabase
         .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
+        .upsert(profileData)
         .select()
         .single()
 
@@ -248,8 +171,6 @@ export const useAuth = () => {
   }
 
   const checkUserExists = async (email: string) => {
-    if (!isSupabaseConfigured()) return false
-    
     try {
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: 'https://example.com/fake'
@@ -261,8 +182,6 @@ export const useAuth = () => {
   }
 
   const signUp = async (email: string, password: string, profileData?: Partial<UserProfile>) => {
-    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
-    
     setLoading(true)
     setError(null)
     
@@ -289,8 +208,6 @@ export const useAuth = () => {
   }
 
   const signIn = async (email: string, password: string) => {
-    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
-    
     setLoading(true)
     setError(null)
     
@@ -315,8 +232,6 @@ export const useAuth = () => {
       throw new Error('Google sign-in can only be used in the browser')
     }
     
-    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
-    
     setLoading(true)
     setError(null)
     
@@ -339,18 +254,6 @@ export const useAuth = () => {
   }
 
   const signOut = async () => {
-    if (!isSupabaseConfigured()) {
-      // If Supabase isn't configured, just clear local state
-      setUser(null)
-      setProfile(null)
-      setSession(null)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('billa-onboarding-active')
-        window.location.replace('/signin')
-      }
-      return
-    }
-    
     setLoading(true)
     setError(null)
     
@@ -402,8 +305,5 @@ export const useAuth = () => {
     loading,
     error,
     isAuthenticated: !!user,
-    isConfigured: isSupabaseConfigured(),
-    isClient, // Export this so components can use it to prevent hydration issues
-    isHydrated, // Export hydration state
   }
 }
