@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Get environment variables with fallbacks for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+
+// Validate that we have real values (not placeholders) when actually using the client
+const hasValidConfig = supabaseUrl !== 'https://placeholder.supabase.co' && supabaseAnonKey !== 'placeholder-key'
 
 // Create client with additional options to prevent server-side issues
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -10,6 +14,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: typeof window !== 'undefined', // Only auto-refresh in browser
   },
 })
+
+// Export a function to check if Supabase is properly configured
+export const isSupabaseConfigured = () => hasValidConfig
 
 export type UserProfile = {
   id: string
