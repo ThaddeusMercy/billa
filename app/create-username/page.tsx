@@ -9,7 +9,7 @@ interface CounterProps {
   initialValue?: number;
 }
 
-export function Counter({ label, decrementTitle, initialValue = 0 }: CounterProps) {
+function Counter({ label, decrementTitle, initialValue = 0 }: CounterProps) {
   const [count, setCount] = useState(initialValue);
 
   return (
@@ -33,6 +33,18 @@ export function Counter({ label, decrementTitle, initialValue = 0 }: CounterProp
           <Plus className="w-5 h-5 text-green-600" />
         </button>
       </div>
+    </div>
+  );
+}
+
+export default function CreateUsernamePage() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Counter 
+        label="Counter Example" 
+        decrementTitle="Decrease count"
+        initialValue={0}
+      />
     </div>
   );
 }
