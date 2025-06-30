@@ -12,21 +12,38 @@ export const usePaymentMethods = (
   const addPaymentMethod = async (paymentMethodData: Omit<PaymentMethod, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     setLoading(true)
     try {
+      console.log('🔄 Adding payment method via API...')
+      
+      // Get the current user to include their ID in the request
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('User not authenticated')
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+      
+      const response = await fetch('/api/payment-methods', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          ...paymentMethodData
+        })
+      })
 
-      const { data: paymentMethod, error } = await supabase
-        .from('payment_methods')
-        .insert({ ...paymentMethodData, user_id: user.id })
-        .select()
-        .single()
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to add payment method')
+      }
 
-      if (error) throw new Error(error.message)
+      const { data: paymentMethod } = await response.json()
+      console.log('✅ Payment method added successfully:', paymentMethod)
 
       setMethods(prev => [...prev, paymentMethod].sort((a, b) => (a.display_order || 0) - (b.display_order || 0)))
       toast.success('Payment method added successfully!')
       return paymentMethod
     } catch (err) {
+      console.error('❌ Error adding payment method:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to add payment method'
       toast.error(errorMessage)
       throw err
