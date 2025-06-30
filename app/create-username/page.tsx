@@ -601,11 +601,30 @@ export default function CreateUsernamePage() {
                       }
 
                       try {
-                        await updateProfile({ social_links: validSocialLinks })
+                        console.log('📱 Updating social links via API...')
+                        const response = await fetch('/api/create-profile', {
+                          method: 'PUT',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            userId: user?.id,
+                            social_links: validSocialLinks
+                          })
+                        })
+
+                        if (!response.ok) {
+                          const errorData = await response.json()
+                          throw new Error(errorData.error || 'Failed to update social links')
+                        }
+
+                        const data = await response.json()
+                        console.log('✅ Social links updated via API:', data)
+                        
                         toast.success('Social accounts added successfully!')
                         setShowSetup(false)
                         setShowSweetScreen(true)
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error('Error saving social links:', error)
                         toast.error('Failed to save social links')
                       }
