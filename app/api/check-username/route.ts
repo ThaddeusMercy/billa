@@ -7,10 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const { username } = await request.json()
     
-    console.log('Username check request for:', username)
-    
     if (!username || username.length < 3) {
-      console.log('Username too short or empty')
       return NextResponse.json({ available: false, error: 'Username must be at least 3 characters' })
     }
 
@@ -19,18 +16,13 @@ export async function POST(request: NextRequest) {
     // Check reserved usernames first (exact match only)
     const reservedUsernames = ['admin', 'test', 'user', 'billa', 'support', 'api', 'www', 'mail', 'ftp']
     if (reservedUsernames.includes(lowercaseUsername)) {
-      console.log('Username is reserved:', lowercaseUsername)
       return NextResponse.json({ available: false })
     }
-    
-    console.log('Checking username in database:', lowercaseUsername)
     
     // Use RPC call to bypass RLS
     const { data, error } = await supabase.rpc('check_username_exists', {
       username_param: lowercaseUsername
     })
-
-    console.log('RPC result:', { data, error })
 
     if (error) {
       console.error('Database error checking username:', error)
@@ -46,12 +38,10 @@ export async function POST(request: NextRequest) {
       }
       
       const available = count === 0
-      console.log('Fallback result - Username availability:', available)
       return NextResponse.json({ available })
     }
 
     const available = !data
-    console.log('Username availability:', available)
     return NextResponse.json({ available })
 
   } catch (error) {
