@@ -1,0 +1,76 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+// Create client with additional options to prevent server-side issues
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: typeof window !== 'undefined', // Only persist sessions in browser
+    autoRefreshToken: typeof window !== 'undefined', // Only auto-refresh in browser
+  },
+})
+
+export type UserProfile = {
+  id: string
+  email: string
+  username?: string
+  full_name?: string
+  avatar_url?: string
+  bio?: string
+  social_links?: Array<{platform: string, value: string}>
+
+  created_at: string
+  updated_at: string
+}
+
+export type PaymentMethod = {
+  id: string
+  user_id: string
+  category: 'bank' | 'crypto' | 'digital'
+  type: string
+  label: string
+  identifier: string
+  
+  // Bank specific fields
+  bank_name?: string
+  account_number?: string
+  account_name?: string
+  routing_number?: string
+  
+  // Crypto specific fields
+  coin_name?: string
+  network?: string
+  wallet_address?: string
+  
+  // Digital wallet specific fields
+  digital_wallet_type?: string
+  digital_wallet_id?: string
+  
+  // UI preferences
+  selected_color: string
+  icon_type?: string
+  icon_value?: string
+  tag?: string
+  display_order?: number
+  
+  created_at: string
+  updated_at: string
+}
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: UserProfile
+        Insert: Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<UserProfile, 'id' | 'created_at'>>
+      }
+      payment_methods: {
+        Row: PaymentMethod
+        Insert: Omit<PaymentMethod, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<PaymentMethod, 'id' | 'user_id' | 'created_at'>>
+      }
+    }
+  }
+}
