@@ -201,8 +201,13 @@ export default function CreateUsernamePage() {
   }
 
   const handleCreateUsername = async () => {
-    if (!username || !isAvailable || !user) {
-      console.log('Cannot create username:', { username, isAvailable, user: !!user })
+    if (!username || isAvailable !== true || !user) {
+      console.log('Cannot create username:', { 
+        username: !!username, 
+        isAvailable, 
+        user: !!user,
+        usernameLength: username.length
+      })
       return
     }
     
@@ -239,26 +244,27 @@ export default function CreateUsernamePage() {
 
   const getDisplayUrl = (usernameParam?: string) => {
     const name = usernameParam || username || 'yourname'
-    if (!isClient) return `yourdomain.com/${name}`
-    return `${window.location.host}/${name}`
+    if (!isClient) return `billa.gg/${name}`
+    
+    // Clean up the URL for display - show a clean domain
+    const hostname = window.location.hostname
+    if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+      return `localhost:3000/${name}`
+    } else if (hostname.includes('webcontainer') || hostname.includes('stackblitz')) {
+      return `billa.gg/${name}`
+    } else {
+      return `${hostname}/${name}`
+    }
   }
 
   const getShareableUrl = (usernameParam?: string) => {
     const name = usernameParam || username
-    if (!isClient) return `https://yourdomain.com/${name}`
+    if (!isClient) return `https://billa.gg/${name}`
     return `${window.location.origin}/${name}`
   }
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Username creation state:', {
-      username,
-      isAvailable,
-      user: !!user,
-      loading,
-      canCreate: !!(username && isAvailable && user && !loading)
-    })
-  }, [username, isAvailable, user, loading])
+  // Check if button should be enabled
+  const canCreateUsername = username.length >= 3 && isAvailable === true && user && !isCreating && !loading
 
   return (
     <>
@@ -368,7 +374,7 @@ export default function CreateUsernamePage() {
           <div className="mt-8">
             <Button
               onClick={handleCreateUsername}
-              disabled={!username || isAvailable !== true || isCreating || loading || !user}
+              disabled={!canCreateUsername}
               className="w-full bg-black hover:bg-gray-800 text-white rounded-xl h-12 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreating ? (
