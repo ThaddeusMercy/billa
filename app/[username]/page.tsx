@@ -1,15 +1,13 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import PublicProfileView from './PublicProfileView'
 
 interface PageProps {
-  params: Promise<{
+  params: {
     username: string
-  }>
+  }
 }
 
 interface UserProfile {
@@ -22,7 +20,7 @@ interface UserProfile {
 }
 
 export default function UsernamePage({ params }: PageProps) {
-  const { username } = use(params)
+  const { username } = params
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
