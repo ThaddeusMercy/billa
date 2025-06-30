@@ -168,9 +168,11 @@ export default function CreateUsernamePage() {
       return
     }
 
+    console.log('Frontend: Starting username check for:', value)
     setIsChecking(true)
     
     try {
+      console.log('Frontend: Making API call to /api/check-username')
       const response = await fetch('/api/check-username', {
         method: 'POST',
         headers: {
@@ -179,14 +181,17 @@ export default function CreateUsernamePage() {
         body: JSON.stringify({ username: value })
       })
       
+      console.log('Frontend: API response status:', response.status)
+      
       const data = await response.json()
+      console.log('Frontend: API response data:', data)
+      
       setIsAvailable(data.available)
     } catch (error) {
-      console.error('Error checking username:', error)
+      console.error('Frontend: Error checking username:', error)
       setIsAvailable(false)
-      toast.error('Error checking username availability')
     } finally {
-      setIsChecking(false)
+    setIsChecking(false)
     }
   }
 
@@ -201,32 +206,20 @@ export default function CreateUsernamePage() {
   }
 
   const handleCreateUsername = async () => {
-    if (!username || isAvailable !== true || !user) {
-      console.log('Cannot create username:', { 
-        username: !!username, 
-        isAvailable, 
-        user: !!user,
-        usernameLength: username.length
-      })
-      return
-    }
+    if (!username || !isAvailable || !user) return
     
     setIsCreating(true)
     localStorage.setItem('billa-onboarding-active', 'true')
     
     try {
-      console.log('Creating username:', username)
-      
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 10000)
+        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 10000) // 10 seconds
       );
 
       await Promise.race([
         updateProfile({ username }),
         timeoutPromise
       ]);
-      
-      console.log('Username created successfully')
       
       toast.success("🎉 Username created!", {
         description: `Your Billa link is ready: ${getDisplayUrl(username)}`,
@@ -244,27 +237,15 @@ export default function CreateUsernamePage() {
 
   const getDisplayUrl = (usernameParam?: string) => {
     const name = usernameParam || username || 'yourname'
-    if (!isClient) return `billa.gg/${name}`
-    
-    // Clean up the URL for display - show a clean domain
-    const hostname = window.location.hostname
-    if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-      return `localhost:3000/${name}`
-    } else if (hostname.includes('webcontainer') || hostname.includes('stackblitz')) {
-      return `billa.gg/${name}`
-    } else {
-      return `${hostname}/${name}`
-    }
+    if (!isClient) return `yourdomain.com/${name}`
+    return `${window.location.host}/${name}`
   }
 
   const getShareableUrl = (usernameParam?: string) => {
     const name = usernameParam || username
-    if (!isClient) return `https://billa.gg/${name}`
+    if (!isClient) return `https://yourdomain.com/${name}`
     return `${window.location.origin}/${name}`
   }
-
-  // Check if button should be enabled
-  const canCreateUsername = username.length >= 3 && isAvailable === true && user && !isCreating && !loading
 
   return (
     <>
@@ -372,9 +353,19 @@ export default function CreateUsernamePage() {
           </div>
 
           <div className="mt-8">
+            {/* Debug info - remove after fixing */}
+            <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
+              <div>Debug - Button conditions:</div>
+              <div>• username: {username || 'empty'} ({!username ? '❌' : '✅'})</div>
+              <div>• isAvailable: {isAvailable === null ? 'null' : isAvailable.toString()} ({isAvailable !== true ? '❌' : '✅'})</div>
+              <div>• isCreating: {isCreating.toString()} ({isCreating ? '❌' : '✅'})</div>
+              <div>• user: {user ? 'exists' : 'null'} ({!user ? '❌' : '✅'})</div>
+              <div>• loading removed from condition (was blocking button)</div>
+            </div>
+            
             <Button
               onClick={handleCreateUsername}
-              disabled={!canCreateUsername}
+              disabled={!username || isAvailable !== true || isCreating || !user}
               className="w-full bg-black hover:bg-gray-800 text-white rounded-xl h-12 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreating ? (
@@ -742,4 +733,4 @@ export default function CreateUsernamePage() {
       )}
     </>
   )
-}
+} 
