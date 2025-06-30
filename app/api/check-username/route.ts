@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.log('Supabase not configured, returning available for demo')
+      return NextResponse.json({ available: true })
+    }
+
     const { username } = await request.json()
     
     if (!username || username.length < 3) {

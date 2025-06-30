@@ -5,7 +5,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
 
 // Validate that we have real values (not placeholders) when actually using the client
-const hasValidConfig = supabaseUrl !== 'https://placeholder.supabase.co' && supabaseAnonKey !== 'placeholder-key'
+const hasValidConfig = supabaseUrl !== 'https://placeholder.supabase.co' && 
+                      supabaseAnonKey !== 'placeholder-key' &&
+                      supabaseUrl.includes('supabase.co') &&
+                      supabaseAnonKey.length > 20
 
 // Create client with additional options to prevent server-side issues
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -16,7 +19,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // Export a function to check if Supabase is properly configured
-export const isSupabaseConfigured = () => hasValidConfig
+export const isSupabaseConfigured = () => {
+  console.log('Checking Supabase configuration:', {
+    hasUrl: !!supabaseUrl && supabaseUrl !== 'https://placeholder.supabase.co',
+    hasKey: !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key',
+    urlValid: supabaseUrl.includes('supabase.co'),
+    keyLength: supabaseAnonKey.length,
+    hasValidConfig
+  })
+  return hasValidConfig
+}
 
 export type UserProfile = {
   id: string
