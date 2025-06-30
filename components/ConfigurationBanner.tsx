@@ -17,17 +17,7 @@ export default function ConfigurationBanner() {
   return (
     <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-3">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <span className="text-sm font-medium text-yellow-800">
-              Setup Required:
-            </span>
-            <span className="text-sm text-yellow-700">
-              Configure your Supabase credentials to enable all features.
-            </span>
-          </div>
-        </div>
+        
         
         <div className="flex items-center gap-2">
           <Button
