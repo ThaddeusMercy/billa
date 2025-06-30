@@ -17,23 +17,28 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 export default function Home() {
-  const { user, profile, isAuthenticated, loading } = useAuthContext()
+  const { user, profile, isAuthenticated, loading, isHydrated } = useAuthContext()
   const [domain, setDomain] = useState("yourdomain.com")
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    setDomain(window.location.host)
+    setMounted(true)
+    if (typeof window !== 'undefined') {
+      setDomain(window.location.host)
+    }
   }, [])
 
   useEffect(() => {
-    if (!loading && isAuthenticated && profile?.username) {
+    if (!loading && isAuthenticated && profile?.username && mounted && isHydrated) {
       router.replace('/dashboard')
     }
-  }, [isAuthenticated, profile?.username, loading, router])
+  }, [isAuthenticated, profile?.username, loading, router, mounted, isHydrated])
 
-  if (loading) {
+  // Show loading state until hydrated to prevent twitching
+  if (loading || !mounted || !isHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
       </div>
     )
@@ -44,7 +49,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen hydration-safe">
       <Header />
 
       {/* Hero Section */}
@@ -154,4 +159,3 @@ export default function Home() {
     </div>
   )
 }
-

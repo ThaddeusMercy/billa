@@ -21,4 +21,4 @@ export function useAuthContext() {
     throw new Error('useAuthContext must be used within an AuthProvider')
   }
   return context
-} 
+}

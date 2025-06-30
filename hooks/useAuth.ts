@@ -10,10 +10,16 @@ export const useAuth = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [session, setSession] = useState<Session | null>(null)
   const [isClient, setIsClient] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // Track if we're in a hydration-safe state
   useEffect(() => {
     setIsClient(true)
+    // Add small delay to prevent hydration mismatches
+    const timer = setTimeout(() => {
+      setIsHydrated(true)
+    }, 100)
+    return () => clearTimeout(timer)
   }, [])
 
   const fetchInitialData = useCallback(async (userId: string) => {
@@ -24,10 +30,15 @@ export const useAuth = () => {
       return
     }
 
+    // Don't fetch if not hydrated yet to prevent twitching
+    if (!isHydrated) {
+      return
+    }
+
     setLoading(true)
     try {
       // Add timeout and better error handling for network requests
-      const fetchWithTimeout = async (promise: Promise<any>, timeoutMs = 10000) => {
+      const fetchWithTimeout = async (promise: Promise<any>, timeoutMs = 8000) => {
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
         })
@@ -83,11 +94,11 @@ export const useAuth = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isHydrated])
 
   useEffect(() => {
     // Prevent server-side execution and hydration issues
-    if (typeof window === 'undefined' || !isClient) {
+    if (typeof window === 'undefined' || !isClient || !isHydrated) {
       return
     }
 
@@ -103,7 +114,7 @@ export const useAuth = () => {
         // Add timeout for session fetch
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Session fetch timeout')), 8000)
+          setTimeout(() => reject(new Error('Session fetch timeout')), 6000)
         })
         
         const { data: { session }, error } = await Promise.race([
@@ -161,11 +172,11 @@ export const useAuth = () => {
     })
 
     return () => subscription.unsubscribe()
-  }, [fetchInitialData, isClient])
+  }, [fetchInitialData, isClient, isHydrated])
 
   useEffect(() => {
     // Prevent server-side execution
-    if (typeof window === 'undefined' || !isClient) return
+    if (typeof window === 'undefined' || !isClient || !isHydrated) return
 
     // Skip session refresh if Supabase is not configured
     if (!isSupabaseConfigured()) return
@@ -184,23 +195,24 @@ export const useAuth = () => {
     return () => {
       clearInterval(sessionRefreshInterval)
     }
-  }, [isClient])
+  }, [isClient, isHydrated])
 
   // This effect is no longer needed for rendering, but kept for redirection logic.
   useEffect(() => {
-    if (!isClient || !user || profile === null) return
+    if (!isClient || !isHydrated || !user || profile === null) return
     
     const currentPath = window.location.pathname
     const isOnboardingActive = localStorage.getItem('billa-onboarding-active') === 'true'
     
     if (!profile?.username && currentPath !== '/create-username' && !currentPath.startsWith('/auth/')) {
+      // Use replace to prevent back button issues
       window.location.replace('/create-username')
     }
     
     if (profile?.username && currentPath === '/create-username' && !isOnboardingActive) {
       window.location.replace('/dashboard')
     }
-  }, [user, profile, isClient])
+  }, [user, profile, isClient, isHydrated])
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in')
@@ -392,5 +404,6 @@ export const useAuth = () => {
     isAuthenticated: !!user,
     isConfigured: isSupabaseConfigured(),
     isClient, // Export this so components can use it to prevent hydration issues
+    isHydrated, // Export hydration state
   }
 }
