@@ -168,11 +168,9 @@ export default function CreateUsernamePage() {
       return
     }
 
-    console.log('Frontend: Starting username check for:', value)
     setIsChecking(true)
     
     try {
-      console.log('Frontend: Making API call to /api/check-username')
       const response = await fetch('/api/check-username', {
         method: 'POST',
         headers: {
@@ -181,17 +179,14 @@ export default function CreateUsernamePage() {
         body: JSON.stringify({ username: value })
       })
       
-      console.log('Frontend: API response status:', response.status)
-      
       const data = await response.json()
-      console.log('Frontend: API response data:', data)
-      
       setIsAvailable(data.available)
     } catch (error) {
-      console.error('Frontend: Error checking username:', error)
+      console.error('Error checking username:', error)
       setIsAvailable(false)
+      toast.error('Error checking username availability')
     } finally {
-    setIsChecking(false)
+      setIsChecking(false)
     }
   }
 
@@ -206,20 +201,27 @@ export default function CreateUsernamePage() {
   }
 
   const handleCreateUsername = async () => {
-    if (!username || !isAvailable || !user) return
+    if (!username || !isAvailable || !user) {
+      console.log('Cannot create username:', { username, isAvailable, user: !!user })
+      return
+    }
     
     setIsCreating(true)
     localStorage.setItem('billa-onboarding-active', 'true')
     
     try {
+      console.log('Creating username:', username)
+      
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 10000) // 10 seconds
+        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 10000)
       );
 
       await Promise.race([
         updateProfile({ username }),
         timeoutPromise
       ]);
+      
+      console.log('Username created successfully')
       
       toast.success("🎉 Username created!", {
         description: `Your Billa link is ready: ${getDisplayUrl(username)}`,
@@ -246,6 +248,17 @@ export default function CreateUsernamePage() {
     if (!isClient) return `https://yourdomain.com/${name}`
     return `${window.location.origin}/${name}`
   }
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Username creation state:', {
+      username,
+      isAvailable,
+      user: !!user,
+      loading,
+      canCreate: !!(username && isAvailable && user && !loading)
+    })
+  }, [username, isAvailable, user, loading])
 
   return (
     <>
@@ -723,4 +736,4 @@ export default function CreateUsernamePage() {
       )}
     </>
   )
-} 
+}
