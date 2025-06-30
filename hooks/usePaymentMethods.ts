@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PaymentMethod, supabase } from '@/lib/supabase'
+import { useAuthContext } from '@/contexts/AuthContext'
 
 export const usePaymentMethods = (
   initialMethods: PaymentMethod[], 
@@ -8,14 +9,13 @@ export const usePaymentMethods = (
 ) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { user } = useAuthContext()
 
   const addPaymentMethod = async (paymentMethodData: Omit<PaymentMethod, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     setLoading(true)
     try {
       console.log('🔄 Adding payment method via API...')
       
-      // Get the current user to include their ID in the request
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         throw new Error('User not authenticated')
       }
@@ -112,7 +112,6 @@ export const usePaymentMethods = (
     setLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
       const updatePromises = newOrder.map((method, index) => 
@@ -124,7 +123,7 @@ export const usePaymentMethods = (
       )
 
       const results = await Promise.all(updatePromises)
-      const firstError = results.find(res => res.error)
+      const firstError = results.find((res: any) => res.error)
 
       if (firstError) {
         throw new Error('Failed to reorder payment methods. Please try again.')
