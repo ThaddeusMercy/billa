@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { username } = params
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
