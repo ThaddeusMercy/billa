@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { useAuthContext } from "@/contexts/AuthContext"
-import { isSupabaseConfigured } from "@/lib/supabase"
 
 // Custom X (Twitter) icon component
 const XIcon = ({ className }: { className?: string }) => (
@@ -38,14 +37,9 @@ export default function CreateUsernamePage() {
   const [isClient, setIsClient] = useState(false)
   const [showSocialConfirm, setShowSocialConfirm] = useState(false)
   const [showSweetScreen, setShowSweetScreen] = useState(false)
-  const [configurationError, setConfigurationError] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
-    // Check if Supabase is configured
-    if (!isSupabaseConfigured()) {
-      setConfigurationError(true)
-    }
   }, [])
 
   const getSocialIcon = (platform: string) => {
@@ -174,46 +168,30 @@ export default function CreateUsernamePage() {
       return
     }
 
-    if (!isSupabaseConfigured()) {
-      // If Supabase isn't configured, just mark as available for demo purposes
-      setIsAvailable(true)
-      return
-    }
-
     console.log('Frontend: Starting username check for:', value)
     setIsChecking(true)
     
     try {
       console.log('Frontend: Making API call to /api/check-username')
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-      
       const response = await fetch('/api/check-username', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username: value }),
-        signal: controller.signal
+        body: JSON.stringify({ username: value })
       })
       
-      clearTimeout(timeoutId)
       console.log('Frontend: API response status:', response.status)
       
       const data = await response.json()
       console.log('Frontend: API response data:', data)
       
       setIsAvailable(data.available)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Frontend: Error checking username:', error)
-      if (error.name === 'AbortError') {
-        toast.error('Request timed out. Please check your connection and try again.')
-      } else {
-        toast.error('Unable to check username availability. Please try again.')
-      }
       setIsAvailable(false)
     } finally {
-      setIsChecking(false)
+    setIsChecking(false)
     }
   }
 
@@ -230,30 +208,53 @@ export default function CreateUsernamePage() {
   const handleCreateUsername = async () => {
     if (!username || !isAvailable || !user) return
     
+    console.log('🚀 Starting username creation process...')
     setIsCreating(true)
     localStorage.setItem('billa-onboarding-active', 'true')
     
     try {
-      if (!isSupabaseConfigured()) {
-        // If Supabase isn't configured, simulate success and go to demo mode
-        toast.success("🎉 Username created!", {
-          description: `Your Billa link is ready: ${getDisplayUrl(username)}`,
-          duration: 4000,
+      console.log('📝 Creating username for user:', user.id, 'username:', username)
+      console.log('📧 User email:', user.email)
+      
+      // Try the auth hook method first
+      try {
+        console.log('🔄 Trying updateProfile method...')
+        await updateProfile({ username })
+        console.log('✅ updateProfile succeeded!')
+      } catch (authError) {
+        console.log('❌ Auth hook failed, trying API approach:', authError)
+        
+        console.log('📡 Making API call to /api/create-profile...')
+        const startTime = Date.now()
+        
+        // Create an API endpoint to handle this server-side with proper permissions
+        const response = await fetch('/api/create-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: username,
+            userId: user.id,
+            email: user.email
+          })
         })
         
-        setShowOnboarding(true)
-        return
+        const endTime = Date.now()
+        console.log(`⏱️ API call took ${endTime - startTime}ms`)
+        console.log('📥 API response status:', response.status)
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.log('❌ API error response:', errorData)
+          throw new Error(errorData.error || 'Failed to create profile')
+        }
+        
+        const data = await response.json()
+        console.log('✅ API approach succeeded:', data)
       }
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 15000) // 15 seconds
-      );
-
-      await Promise.race([
-        updateProfile({ username }),
-        timeoutPromise
-      ]);
       
+      console.log('🎉 Username creation successful!')
       toast.success("🎉 Username created!", {
         description: `Your Billa link is ready: ${getDisplayUrl(username)}`,
         duration: 4000,
@@ -261,8 +262,8 @@ export default function CreateUsernamePage() {
       
       setShowOnboarding(true)
     } catch (error: any) {
-      console.error('Error creating username:', error)
-      toast.error(error.message || 'Failed to create username. Please try again.')
+      console.error('💥 Error creating username:', error)
+      toast.error(error.message || 'Failed to create username')
       setIsCreating(false)
       localStorage.removeItem('billa-onboarding-active')
     }
@@ -278,38 +279,6 @@ export default function CreateUsernamePage() {
     const name = usernameParam || username
     if (!isClient) return `https://yourdomain.com/${name}`
     return `${window.location.origin}/${name}`
-  }
-
-  // Show configuration error if Supabase isn't set up
-  if (configurationError) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-8 max-w-md text-center border border-red-200">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <XClose className="h-8 w-8 text-red-600" />
-          </div>
-          <h1 className="text-xl font-bold text-black mb-2">Configuration Required</h1>
-          <p className="text-black/60 mb-6">
-            This application requires Supabase to be configured. Please set up your environment variables and database.
-          </p>
-          <div className="space-y-3">
-            <Button
-              onClick={() => window.open('/DEPLOYMENT_GUIDE.md', '_blank')}
-              className="w-full bg-black hover:bg-black/90 text-white rounded-xl"
-            >
-              View Setup Guide
-            </Button>
-            <Button
-              onClick={() => router.push('/')}
-              variant="outline"
-              className="w-full border-black/20 text-black/70 hover:bg-black/5 rounded-xl"
-            >
-              Go Home
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -648,10 +617,8 @@ export default function CreateUsernamePage() {
                       }
 
                       try {
-                        if (isSupabaseConfigured()) {
-                          await updateProfile({ social_links: validSocialLinks })
-                          toast.success('Social accounts added successfully!')
-                        }
+                        await updateProfile({ social_links: validSocialLinks })
+                        toast.success('Social accounts added successfully!')
                         setShowSetup(false)
                         setShowSweetScreen(true)
                       } catch (error) {
@@ -792,4 +759,4 @@ export default function CreateUsernamePage() {
       )}
     </>
   )
-}
+} 
